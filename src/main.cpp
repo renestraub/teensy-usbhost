@@ -8,14 +8,13 @@
  */
 #include <Arduino.h>
 #include <USBHost_t36.h>    // USBHost, USBHub, etc.
-#include "uSDFS.h"          // Filesystem wrapper
+#include <uSDFS.h>          // Filesystem wrapper
 
 
 USBHost myusb;
 USBHub hub1(myusb);
-msController msDrive1(myusb);
 
-/* 
+/*
  * Select interface
  * See http://elm-chan.org/fsw/ff/doc/filename.html and
  * uSDFS.h -> PARTITION VolToPart[]
@@ -155,7 +154,7 @@ static void test_list()
   FILINFO fi;
 
   rc = f_findfirst(&d, &fi, "/", "*");
-  while (rc == FR_OK && fi.fname[0]) {         /* Repeat while an item is found */
+  while (rc == FR_OK && fi.fname[0]) {
     // Serial.printf("  %s %d\n", fi.fname, fi.fsize);
     if (fi.fattrib & AM_DIR) {
       Serial.printf("         <DIR> %s\n", fi.fname);
@@ -206,6 +205,7 @@ static void test_largefile()
       break;
     }
   }
+
   auto end = millis();
   float duration = (end - start) / 1000.0;
   Serial.printf("Read: %d bytes\n", read);
@@ -218,59 +218,4 @@ static void test_largefile()
   }
 
   unmount();
-}
-
-//-----------------------------------------------------------------------------
-
-/*
- * MSC access wrapper.
- * This replaces the code in sd_msc.cpp of uSDFS that doesn't compile
- * in my environment
- */
-
-#include <diskio.h>
-
-extern "C"
-{
-  int MSC_disk_initialize()
-  {
-    uint8_t mscError = 0;
-    if ((mscError = msDrive1.mscInit()))
-      Serial.printf(F("msDrive1 not connected: Code: %d\n\n"), mscError);
-    // else
-    //   Serial.printf(F("msDrive1  connected\n"));
-
-    return mscError;
-  }
-
-  int MSC_disk_status()
-  {
-    // 	int stat = 0;
-    // 	if(!deviceAvailable()) stat = STA_NODISK; 	// No USB Mass Storage Device Connected
-    // 	if(!deviceInitialized()) stat = STA_NOINIT; // USB Mass Storage Device Un-Initialized
-    // 	return stat;
-
-    // Serial.println("MSC_disk_status");
-    uint8_t mscError = 0;
-    if ((mscError = msDrive1.checkConnectedInitialized()) != MS_INIT_PASS)
-    {
-      Serial.printf(F("msDrive1 not connected: Code: %d\n\n"), mscError);
-      return STA_NODISK;
-    }
-    return 0;
-  }
-
-  int MSC_disk_read(BYTE *buff, DWORD sector, UINT count)
-  {
-    // Serial.printf("MSC_disk_read %d %d\n", sector, count);
-    return msDrive1.msReadBlocks(sector, count, 512, buff);
-  }
-
-  int MSC_disk_write(const BYTE *buff, DWORD sector, UINT count)
-  {
-  // {	//WaitDriveReady();
-  // 	return writeSectors((BYTE *)buff, sector, count);
-  // }
-    return RES_WRPRT;
-  }
 }
